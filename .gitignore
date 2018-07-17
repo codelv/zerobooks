@@ -1,0 +1,6 @@
+*.pyc
+*.enamlc
+__pycache__/
+__enamlcach__/
+.kdev4/
+*.swp

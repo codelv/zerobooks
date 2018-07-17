@@ -1,0 +1,82 @@
+#------------------------------------------------------------------------------
+# Copyright (c) 2013, Nucleic Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING.txt, distributed with this software.
+#------------------------------------------------------------------------------
+from enaml.widgets.api import Container, DockArea, DockItem
+from enaml.workbench.api import Extension, PluginManifest
+from enaml.workbench.ui.api import ActionItem, MenuItem, ItemGroup
+from enaml.widgets.api import (
+    Window, Label, Field, Form, DateSelector, CheckBox, GroupBox, Container,
+    PushButton
+)
+from enaml.layout.api import (
+    HSplitLayout, VSplitLayout, TabLayout, InsertItem, hbox, vbox, spacer
+)
+from zero.models.customer import Customer
+from .customer import CustomerView, CustomerListView
+from .invoice import InvoiceView, InvoiceListView
+
+
+enamldef DefaultView(Container):
+    padding = 0
+
+
+enamldef DockView(DockArea): view:
+    attr workbench 
+    attr plugin = workbench.get_plugin('zero.core')
+    layout = HSplitLayout(VSplitLayout('invoice-list', 
+                                        'customer-list'), 'company-view')
+    DockItem:
+        name = 'company-view'
+        title = 'Company'
+        closable = False
+        CustomerView:
+            customer := plugin.company
+    DockItem:
+        name = 'customer-list'
+        title = 'Customers'
+        CustomerListView:
+            customers := plugin.customers
+    DockItem:
+        name = 'invoice-list'
+        title = 'Invoices'
+        InvoiceListView:
+            invoices := plugin.invoices
+
+
+enamldef DockManifest(PluginManifest):
+    """ The manifest which is registered when the view is loaded.
+
+    This manifest contributes extra menu items to the menu bar.
+
+    """
+    id = 'zero.core.views.dock'
+    Extension:
+        id = 'actions'
+        point = 'enaml.workbench.ui.actions'
+        MenuItem:
+            path = '/edit'
+            label = 'Edit'
+            after = 'file'
+            before = 'workspace'
+            ItemGroup:
+                id = 'first'
+        ActionItem:
+            path = '/edit/undo'
+            label = 'Undo'
+            group = 'first'
+        ActionItem:
+            path = '/edit/cut'
+            label = 'Cut'
+            shortcut = 'Ctrl+X'
+        ActionItem:
+            path = '/edit/copy'
+            label = 'Copy'
+            shortcut = 'Ctrl+C'
+        ActionItem:
+            path = '/edit/paste'
+            label = 'Paste'
+            shortcut = 'Ctrl+V'
