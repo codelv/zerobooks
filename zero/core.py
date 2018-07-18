@@ -61,9 +61,11 @@ class CorePlugin(Plugin):
         
         for c in [self.company]+customers:
             profile = faker.profile()
-            c.company = profile['company']
+            if faker.random_int(max=10) > 7:
+                c.company = profile['company']
             c.name = profile['name']
-            c.website = ", ".join(profile['website'])
+            if faker.random_int(max=10) > 9:
+                c.website = ", ".join(profile['website'])
             c.email = profile['mail']
             c.phone = faker.phone_number()
             

@@ -5,25 +5,28 @@
 #
 # The full license is in the file COPYING.txt, distributed with this software.
 #------------------------------------------------------------------------------
+import re
 import arrow
+import pdfkit
 from enaml.core.api import Looper, Conditional
 from enaml.workbench.ui.api import ActionItem, MenuItem, ItemGroup
 from enaml.layout.api import vertical, horizontal, align, spacer, vbox, hbox
 from enaml.widgets.api import (
     Window, Label, Field, Form, DateSelector, CheckBox, GroupBox, Container,
     PushButton, Menu, Action, DockItem, ObjectCombo, SpinBox, MultilineField,
-    Html, Timer, WebView
+    Html, Timer, WebView, FileDialogEx
 ) 
 from enamlx.widgets.api import (
     TableView, TableViewRow, TableViewItem, DoubleSpinBox
 )
 
 
-from enaml.scintilla.scintilla import Scintilla
+from enaml.scintilla.api import Scintilla, ScintillaIndicator, ScintillaMarker
 from enaml.scintilla.themes import THEMES
 from enaml.applib.live_editor_model import LiveEditorModel
 
 from zero.models.invoice import Invoice, InvoiceItem
+from zero.utils import load_image
 
 
 enamldef InvoiceForm(Container):
@@ -82,6 +85,14 @@ enamldef InvoiceForm(Container):
             TableViewRow:
                 row << table.visible_row+loop_index
                 attr line_item << table.items[self.row] if self.row < len(table.items) else InvoiceItem()
+                Menu:
+                    Action:
+                        text = "Remove item"
+                        enabled << bool(invoice.items)
+                        triggered :: 
+                            invoice.items = [i for i in invoice.items 
+                                                if i != line_item]
+                            
                 TableViewItem:
                     checkable = True
                     checked << line_item in table.selected
@@ -118,7 +129,7 @@ enamldef InvoiceForm(Container):
     Container:
         constraints = [
             vbox( 
-                hbox(btn_add, spacer, lbl_amnt, lbl_amnt_value),
+                hbox(btn_add, btn_clear, spacer, lbl_amnt, lbl_amnt_value),
                 lbl_cmts,
                 fld_cmts,
             )
@@ -126,6 +137,11 @@ enamldef InvoiceForm(Container):
         PushButton: btn_add:
             text = "Add item"
             clicked :: invoice.items.append(InvoiceItem())
+        PushButton: btn_clear:
+            text = "Clear all items"
+            clicked :: 
+                # TODO: Prompt to verify
+                invoice.items = []
         Label: lbl_amnt:
             text = "<b>Total</b>"
         Label: lbl_amnt_value:
@@ -133,7 +149,7 @@ enamldef InvoiceForm(Container):
         Label: lbl_cmts:
             text = "Comments"
         MultilineField: fld_cmts:
-            text << invoice.notes
+            text := invoice.notes
     
 
 enamldef InvoiceView(Container):
@@ -153,15 +169,47 @@ enamldef InvoiceDesignerDockItem(DockItem): view:
     attr invoice: Invoice
     name << 'invoice-designer-{}'.format(invoice.uuid)
     title << "Design Invoice - {}".format(invoice.number)
+    attr model = LiveEditorModel(
+        #model_text=',
+        model_item='InvoiceModel',
+        model_filename='invoice.py',
+        view_item='InvoiceTemplate',
+        view_filename='invoice.enaml',
+    )
+    func create_indicators(traceback):
+        results = []
+        try:
+            for line in traceback.split("\n"):
+                line = line.strip()
+                if 'invoice.enaml' not in line:
+                    continue
+                m = re.search(r"line (\d+)", line)
+                if not m:
+                    continue
+                try:
+                    l = int(m.group(1))
+                except ValueError:
+                    continue
+
+                start = (l-1, 0)
+                stop = (l, 0)
+                color = "#FFFF00"
+                try:
+                    color = "#FF0000"
+                    c = int(tag[2])
+                    start = (l-1, 0)
+                    stop = (l-1, c)
+                except:
+                    pass
+                results.append(ScintillaIndicator(
+                    start=start, stop=stop, style="squiggle", color=color,
+                ))
+        except Exception as e:
+            print(e)
+        return results
+        
     Container:
         Scintilla: editor:
-            attr model = LiveEditorModel(
-                #model_text=',
-                model_item='InvoiceModel',
-                model_filename='invoice.py',
-                view_item='InvoiceTemplate',
-                view_filename='invoice.enaml',
-            )
             settings = {
                 "tab_width": 4,
                 "use_tabs": False,
@@ -178,6 +226,12 @@ enamldef InvoiceDesignerDockItem(DockItem): view:
                 with open('zero/templates/invoice.enaml') as f:
                     model.view_text = f.read()
                     set_text(model.view_text)
+            indicators << create_indicators(model.traceback)
+            markers << [ScintillaMarker(
+                        line=i.start[0],
+                        image=load_image("exclamation" if i.color=="#FF0000"
+                                         else "error"))
+                        for i in indicators]
             text_changed :: timer.start()
             Timer: timer:
                 interval = 350
@@ -190,6 +244,8 @@ enamldef InvoiceDesignerDockItem(DockItem): view:
                         invoice.view = view
                     except Exception as e:
                         print(e)
+        Html:
+            source << f"<pre>{model.traceback or 'No errors'}</pre>"
 
         
 
@@ -199,10 +255,24 @@ enamldef InvoicePreviewDockItem(DockItem): view:
     title << "Preview Invoice - {}".format(invoice.number)
     
     Container:
-        WebView:
-        #Html:
+        constraints = [
+            vbox(web_view,
+                 hbox(btn_dl, spacer, btn_design),
+            )
+        ]
+        WebView: web_view:
             html << invoice.view.render() if invoice.view.version else "<p>Template missing</p>"
-        PushButton:
+        PushButton: btn_dl:
+            text = "Save as pdf"
+            clicked :: 
+                # Save as pdf
+                name = f'invoice-{invoice.number}.pdf'
+                path = FileDialogEx.get_save_file_name(
+                    self, current_path=name, name_filters=['*.pdf'])
+                if path:
+                    pdfkit.from_string(web_view.html, path)
+                    
+        PushButton: btn_design:
             text = "Open designer"
             clicked :: 
                 tag = 'invoice-design-{}'.format(invoice.uuid)

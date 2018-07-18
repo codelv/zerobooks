@@ -60,19 +60,33 @@ enamldef InvoiceTemplate(Html):
                 TBody:
                     Tr:
                         Td:
+                            style = 'vertical-align: top'
+                            
                             Span:
-                                text << invoice.customer.company or invoice.customer.display_name
+                                text << invoice.customer.display_name
+                            Br:
+                                pass
+                            Conditional:
+                                condition << bool(invoice.customer.company)
+                                Span:
+                                    text << invoice.customer.company
+                                Br:
+                                    pass
+                            Span:
+                                text << invoice.customer.billing_address.street
                             Br:
                                 pass
                             Span:
-                                text << invoice.customer.billing_address.street
+                                attr address << invoice.customer.billing_address
+                                text << f"{address.city}, {address.state} {address.zipcode}"    
+                            
                         Td:
                             Span:
                                 text << invoice.owner.company or invoice.owner.display_name
                             H4:
                                 text = "Project"
                             Span:
-                               text << str(invoice)
+                               text << invoice.project
                         Td:
                             Span:
                                 text << f'{invoice.number}'
@@ -104,7 +118,7 @@ enamldef InvoiceTemplate(Html):
                                 text = "Total Price"
                 TBody:
                     Looper:
-                        iterable << invoice.items
+                        iterable << invoice.items[:]
                         Tr:
                             attr color << '#fff' if (loop_index & 1) else '#f3f3f3'
                             style << f'background: {color};'
@@ -119,25 +133,51 @@ enamldef InvoiceTemplate(Html):
                                     text << f'{loop_item.quantity}'
                             Td:
                                 Span:
-                                    text << f'${loop_item.rate}'
+                                    text << f'${loop_item.rate:.2f}'
                             Td:
                                 Span:
-                                    text << f'${loop_item.amount}'    
-            Div:
-                H5:
-                    text = "Notes"
-                P:
-                    style << f'color: {text_light}; font-size: 12px;'
-                    text << invoice.notes or "Thanks for doing business with us"
-            Div:
-                style << f'background: #efefef; padding: 20px; color: {text_light}'
-                H4:
-                    style = "text-align: center"
-                    text = "Have a question or need help?"
-                P:
-                    style = "text-align: center"
-                    text = f"Send us an email at {invoice.owner.email} or give us a call at {invoice.owner.phone}"
-            Div:
-                style = 'background: #26a69a; height: 20px;'
+                                    text << f'${loop_item.amount:.2f}'    
+                TFoot:
+                    Tr:
+                        Td:
+                            colspan = '3'
+                            Span:
+                                text = "Notes"
+                            P:
+                                style << f'color: {text_light}; font-size: 12px;'
+                                text << invoice.notes or "Thanks for doing business with us!"
+                        Td:
+                            style = 'text-align: right; padding-right: 20px'
+                            Span:
+                                style = 'font-weight: bold'
+                                text = "Subtotal"
+                            Br:
+                                pass
+                            Span:
+                                style = 'font-weight: bold'
+                                text = "Adjustments"
+                            H3:
+                                text = 'Grand total'
+                        Td:
+                            Span:
+                                text << f"${invoice.subtotal:.2f}"
+                            Br:
+                                pass
+                            Span:
+                                text << f"${invoice.total_adjustments:.2f}"
+                            Br:
+                                pass
+                            H3:
+                                text << f"${invoice.total_amount:.2f}"
+        Div:
+            style << f'background: #efefef; padding: 20px; color: {text_light}'
+            H4:
+                style = "text-align: center"
+                text = "Have a question or need help?"
+            P:
+                style = "text-align: center"
+                text << f"Send us an email at {invoice.owner.email} or give us a call at {invoice.owner.phone}"
+        Div:
+            style = 'background: #26a69a; height: 20px;'
             
             

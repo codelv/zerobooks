@@ -1,6 +1,7 @@
 *.pyc
 *.enamlc
 __pycache__/
-__enamlcach__/
+__enamlcache___/
 .kdev4/
 *.swp
+*.pdf

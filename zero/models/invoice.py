@@ -88,8 +88,21 @@ class Invoice(Model):
     #: Notes
     notes = Unicode()
     
+    #: Project 
+    project = Unicode()
+    
+    
     #: Items
     items = ContainerList(InvoiceItem)
+    
+    #: Balance
+    subtotal = Float()
+    
+    #: Balance
+    total_adjustments = Float()
+    
+    #: Balance
+    total_tax = Float()
     
     #: Balance
     total_amount = Float()
@@ -97,8 +110,11 @@ class Invoice(Model):
     #: Template
     view = Instance(Html)
     
-    def _default_total_amount(self):
+    def _default_subtotal(self):
         return sum([i.amount for i in self.items])
+    
+    def _default_total_amount(self):
+        return self.subtotal+self.total_tax+self.total_adjustments
     
     @observe('items')
     def _update_totals(self, change):
@@ -106,7 +122,8 @@ class Invoice(Model):
         for item in self.items:
             item.unobserve('amount', self._update_totals)
             item.observe('amount', self._update_totals)
-            
+        
+        self.subtotal = self._default_subtotal()
         self.total_amount = self._default_total_amount()
         
     def _default_view(self):
