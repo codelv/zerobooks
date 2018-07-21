@@ -26,7 +26,7 @@ from enaml.scintilla.themes import THEMES
 from enaml.applib.live_editor_model import LiveEditorModel
 
 from zero.models.invoice import Invoice, InvoiceItem
-from zero.utils import load_image
+from zero.utils import load_image, safe_search
 
 
 enamldef InvoiceForm(Container):
@@ -290,7 +290,7 @@ enamldef InvoiceViewDockItem(DockItem): view:
 
 
 enamldef InvoiceListView(Container): view:
-    alias invoices: table.items
+    attr invoices: list = []
     attr version: int = 1
     attr selected: set = set()
     
@@ -300,15 +300,39 @@ enamldef InvoiceListView(Container): view:
             item = InvoiceViewDockItem(plugin.area, invoice=invoice)
             plugin.insert_item(item, target='company-view')
     
+    func queryset(items, text):
+        if not text:
+            return items
+        qs = []
+        for item in items:
+            #: WARN: Security issue
+            #: TODO Parse to ast, but dilligaf for now
+            scope = {'number': item.number, 'customer': item.customer.name.lower(),
+                     'amount': item.total_amount, 'date': item.date}
+            if safe_search(scope, text.lower()):
+                qs.append(item)
+        return qs
+            
+        #for expr in re.split(r' and|or ', text):
+        #    op = 
+    
+    Field: search:
+        placeholder = "Filters... ex John in customer, number = 1000"
+    Label:
+        text << f"Showing {len(table.items)} of {len(invoices)}"
     TableView: table:
         horizontal_headers = ['', 'Number', 'Date', 'Customer', 'Amount']
         horizontal_stretch = True
         show_vertical_header = False
+        selection_behavior = 'rows'
+        #resize_mode = 'resize_to_contents'
+        minimum_size = (540, 320)
+        items <<  queryset(invoices, search.text)
         Looper:
             iterable << range(100)
             TableViewRow:
                 row << table.visible_row+loop_index
-                attr invoice << table.items[self.row]
+                attr invoice << table.items[self.row] if self.row < len(table.items) else Invoice()
                 double_clicked :: edit_item(invoice)
                 Menu:
                     Action:

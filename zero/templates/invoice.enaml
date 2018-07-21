@@ -10,10 +10,7 @@ enamldef InvoiceTemplate(Html):
     attr text_light = "#777"
     
     # Workaround to automatically update
-    activated ::
-        self.websockets = [self]
-    func write_message(msg):
-        self.version += 1
+    modified :: self.version += 1
     Body:
         style = 'font-family: sans-serif;'
         Div:

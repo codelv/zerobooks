@@ -70,3 +70,21 @@ def menu_icon(name):
     if sys.platform == 'win32':
         return load_icon(name)
     return None
+
+
+def safe_search(scope, query):
+    """ Perform a safe search expression evaluation by parsing the query
+    ast and computing the value from the scope.
+    
+    Returns
+    -------
+    matched: Bool or None for error
+        Whether the item in the scope matches the query
+    
+    
+    """
+    try:
+        # TODO: Do not use eval but instead parse the ast 
+        return bool(eval(query, {}, scope))
+    except:
+        pass

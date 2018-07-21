@@ -18,7 +18,8 @@ from enamlx.widgets.table_view import (
 )
 
 from zero.models.customer import Customer, Address
-from zero.validators.phone_number import PhoneNumberValidator
+from zero.utils import safe_search
+
 
 enamldef AddressForm(Form): form:
     attr title: str = "Address"
@@ -218,7 +219,7 @@ enamldef CustomerViewDockItem(DockItem):
 
 
 enamldef CustomerListView(Container): view:
-    alias customers: table.items
+    attr customers: list = []
     attr version: int = 1
     attr selected: set = set()
     
@@ -228,15 +229,32 @@ enamldef CustomerListView(Container): view:
             item = CustomerViewDockItem(plugin.area, customer=customer)
             plugin.insert_item(item, target='company-view')
     
+    func queryset(items, text):
+        if not text:
+            return items
+        qs = []
+        for item in items:
+            #: WARN: Security issue
+            #: TODO Parse to ast, but dilligaf for now
+            scope = {'name': item.name.lower(), 'company': item.company.lower(),
+                     'phone': item.phone}
+            if safe_search(scope, text.lower()):
+                qs.append(item)
+        return qs
+    Field: search:
+        placeholder = 'Filters... ex "John" in name or number = 10000'
+    Label:
+        text << f"Showing {len(table.items)} of {len(customers)}"
     TableView: table:
-        horizontal_headers = ['', 'Customer', 'Company', 'Phone', 'Open Balance', 'Actions']
+        horizontal_headers = ['', 'Name', 'Company', 'Phone', 'Open Balance', 'Actions']
         horizontal_stretch = True
         show_vertical_header = False
+        items << queryset(customers, search.text)
         Looper:
             iterable << range(50)
             TableViewRow:
                 row << table.visible_row+loop_index
-                attr customer << table.items[self.row]
+                attr customer << table.items[self.row] if self.row < len(table.items) else Customer()
                 double_clicked :: edit_item(customer)
                 Menu:
                     Action:
