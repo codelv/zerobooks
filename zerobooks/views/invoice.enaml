@@ -1,0 +1,432 @@
+"""
+Copyright (c) 2018, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+import os
+import re
+import sys
+import weasyprint
+from datetime import datetime, time
+from decimal import Decimal as D
+
+from enaml.core.api import Looper, Conditional
+from enaml.workbench.ui.api import ActionItem, MenuItem, ItemGroup
+from enaml.layout.api import vertical, horizontal, align, spacer, vbox, hbox
+from enaml.widgets.api import (
+    Window, Label, Field, Form, DateSelector, CheckBox, GroupBox, Container,
+    PushButton, Menu, Action, ObjectCombo, SpinBox, MultilineField,
+    Html, Timer, WebView, FileDialogEx
+) 
+from enaml.scintilla.api import Scintilla, ScintillaIndicator, ScintillaMarker
+from enaml.scintilla.themes import THEMES
+from enaml.applib.live_editor_model import LiveEditorModel
+from enamlx.widgets.api import (
+    TableView, TableViewRow, TableViewItem, DoubleSpinBox
+)
+
+from zerobooks.app import QT_WEBENGINE, QT_QSCI
+from zerobooks.models.api import Product, Invoice, InvoiceItem
+from zerobooks.utils import (
+    DockArea, DockItem, load_image, safe_search, load_icon, clip
+)
+
+
+enamldef InvoiceForm(Container):
+    # sys_config: System is a DockArea global
+    attr invoice: Invoice
+    async func save():
+        if invoice:
+            await invoice.save()
+            notification(message=f"Invoice {invoice.number} saved!")
+    GroupBox:
+        constraints = [
+            vbox(
+                hbox(vbox(
+                        hbox(lbl_num, lbl_num_val),
+                        hbox(lbl_cust, cmb_cust)), spacer, vbox(lbl_bal_due, lbl_bal_due_value)),
+                hbox(vbox(lbl_terms, cmb_terms),
+                     vbox(lbl_date, fld_date),
+                     vbox(lbl_due, fld_due), spacer)
+            ),
+            align('v_center', lbl_num, lbl_num_val, lbl_bal_due),
+            align('v_center', lbl_cust, cmb_cust, lbl_bal_due_value),#, lbl_bal_due, lbl_bal_due_value),
+        ]
+        Label: lbl_num:
+           text = "Invoice:"
+        Label: lbl_num_val:
+           text << f"{invoice.number}"
+        Label: lbl_bal_due:
+            text = 'Balance Due:'
+        Label: lbl_bal_due_value:
+            text << '<span style=" font-size:24pt; font-weight:thin;">${0:,.2f}</span>'.format(invoice.total_amount)
+        Label: lbl_cust:
+            text = "Customer:"
+        ObjectCombo: cmb_cust:
+            items << sorted(plugin.customers[:], key=lambda c:c.last_name+c.first_name)
+            to_string = lambda c: c.display_name
+            selected := invoice.customer
+        Label: lbl_terms:
+            text = "Terms:"
+        ObjectCombo: cmb_terms:
+            items << list(sys_config.invoice_terms.keys())
+            to_string = lambda it: clip(sys_config.invoice_terms[it], 50)
+            selected := invoice.terms
+        Label: lbl_date:
+            text = "Date:"
+        DateSelector: fld_date:
+            date << invoice.date.date()
+            date :: invoice.date = datetime.combine(change['value'], time(0, 0))
+            calendar_popup = True
+        Label: lbl_due:
+            text = "Due:"
+        DateSelector: fld_due:
+            calendar_popup = True
+            date << invoice.due_date.date()
+            date :: invoice.due_date = datetime.combine(change['value'], time(0, 0))
+    TableView: table:
+        attr version: int = 1
+        attr selected: set = set()
+        horizontal_headers = ['Product / Service', 'Description', 'Qty', 'Rate', 'Amount']
+        horizontal_stretch = True
+        show_vertical_header = False
+        items << invoice.items[:]
+        Looper:
+            iterable << range(50)
+            TableViewRow:
+                row << table.visible_row+loop.index
+                attr line_item: InvoiceItem << table.items[self.row] if self.row < len(table.items) else InvoiceItem()
+                Menu:
+                    Action:
+                        text = "Remove item"
+                        enabled << bool(invoice.items)
+                        triggered :: 
+                            invoice.items = [i for i in invoice.items 
+                                                if i != line_item]
+                            
+                TableViewItem:
+                    checkable = True
+                    checked << line_item in table.selected
+                    checked :: 
+                        s = set((line_item,))
+                        if change['value']:
+                            table.selected = table.selected.union(s)
+                        else:
+                            table.selected = table.selected.difference(s)
+                    editable = True
+                    text := line_item.name
+                TableViewItem:
+                    editable = True
+                    text := line_item.description
+                TableViewItem:
+                    editable = True
+                    text << f"{line_item.quantity}"
+                    text :: 
+                        try:
+                            line_item.quantity = float(change['value'])
+                        except ValueError:
+                            pass
+                TableViewItem:
+                    editable = True
+                    text << "${0:,.2f}".format(line_item.rate)
+                    text :: 
+                        try:
+                            line_item.rate = D(change['value'].strip("$"))
+                        except ValueError:
+                            pass
+                TableViewItem:
+                    text << "${0:,.2f}".format(line_item.amount)
+    Container:
+        constraints = [
+            vbox( 
+                hbox(btn_add, btn_clear, spacer, lbl_amnt, lbl_amnt_value),
+                lbl_cmts,
+                fld_cmts,
+            )
+        ]
+        PushButton: btn_add:
+            text = "Add item"
+            clicked :: invoice.items.append(InvoiceItem())
+        PushButton: btn_clear:
+            text = "Clear all items"
+            clicked :: 
+                # TODO: Prompt to verify
+                if workbench.message_question(
+                    title="Please confirm",
+                    message="Do you want to clear all line items?"
+                ):
+                    invoice.items = []
+        Label: lbl_amnt:
+            text = "<b>Total</b>"
+        Label: lbl_amnt_value:
+            text << "<b>${0:,.2f}</b>".format(invoice.total_amount)
+        Label: lbl_cmts:
+            text = "Comments"
+        MultilineField: fld_cmts:
+            text := invoice.notes
+    PushButton:
+        text = "Save"
+        clicked :: app.deferred_call(save())
+
+
+enamldef InvoiceDesignerDockItem(DockItem): view:
+    attr invoice: Invoice
+    name << f"invoice-designer-{invoice.uuid}"
+    title << f"Design Invoice - {invoice.number}"
+    attr model = LiveEditorModel(
+        model_item='InvoiceModel',
+        model_filename='invoice.py',
+        view_item='InvoiceTemplate',
+        view_filename='invoice.enaml',
+    )
+    func create_indicators(traceback):
+        results = []
+        try:
+            for line in traceback.split("\n"):
+                line = line.strip()
+                if 'invoice.enaml' not in line:
+                    continue
+                m = re.search(r"line (\d+)", line)
+                if not m:
+                    continue
+                try:
+                    l = int(m.group(1))
+                except ValueError:
+                    continue
+
+                start = (l-1, 0)
+                stop = (l, 0)
+                color = "#FFFF00"
+                try:
+                    color = "#FF0000"
+                    c = int(tag[2])
+                    start = (l-1, 0)
+                    stop = (l-1, c)
+                except:
+                    pass
+                results.append(ScintillaIndicator(
+                    start=start, stop=stop, style="squiggle", color=color,
+                ))
+        except Exception as e:
+            print(e)
+        return results
+        
+    Container:
+        Scintilla: editor:
+            settings = {
+                "tab_width": 4,
+                "use_tabs": False,
+                "indent": 4,
+                "tab_indents": True,
+                "auto_indent": True,
+                "backspace_unindents": True,
+                "autocompletion_threshold": 3,
+                "show_line_numbers": True,
+            }
+            syntax = 'enaml'
+            theme << THEMES['friendly']
+            activated :: 
+                root = os.path.dirname(os.path.dirname(__file__))
+                path = os.path.join(root, "templates", "invoice.enaml")
+                with open(path) as f:
+                    model.view_text = f.read()
+                    set_text(model.view_text)
+            indicators << create_indicators(model.traceback)
+            markers << [ScintillaMarker(
+                        line=i.start[0],
+                        image=load_image("exclamation" if i.color=="#FF0000"
+                                         else "error"))
+                        for i in indicators]
+            text_changed :: timer.start()
+            Timer: timer:
+                interval = 350
+                single_shot = True
+                timeout ::
+                    setattr(model,'view_text', str(editor.get_text()))
+                    try:
+                        view = model.compiled_view
+                        view.invoice = invoice
+                        invoice.view = view
+                    except Exception as e:
+                        print(e)
+        Html:
+            source << f"<pre>{model.traceback or 'No errors'}</pre>"
+
+        
+
+enamldef InvoicePreviewDockItem(DockItem): view:
+    attr invoice: Invoice
+    attr source << generate_invoice(invoice, invoice.customer, invoice.view.version)
+    name << f"invoice-preview-{invoice.uuid}"
+    title << f"Preview Invoice - {invoice.number}"
+
+    func generate_invoice(*args) -> str:
+        if invoice.customer and invoice.view.version:
+            return invoice.view.render()
+        return "<p>Template missing or invoice is incomplete.</p>"
+
+    func save_as_pdf():
+        # Save as pdf
+        core = workbench.get_plugin("zerobooks.core")
+        name = invoice.generate_filename()
+        default_path = os.path.join(core.last_save_dir, name)
+        path = FileDialogEx.get_save_file_name(
+            self, current_path=default_path, name_filters=["*.pdf"])
+        if path:
+            core.last_save_dir = os.path.dirname(path)
+            pdf = weasyprint.HTML(string=view.source)
+            pdf.write_pdf(path)
+    
+    func open_designer() -> InvoiceDesignerDockItem:
+        tag = f"invoice-design-{invoice.uuid}"
+        if item := plugin.area.find(tag):
+            return item
+        item = InvoiceDesignerDockItem(plugin.area, invoice=invoice)
+        plugin.insert_item(item, target='company-view')
+        return item
+
+    Container:
+        constraints = [
+            vbox(web_view,
+                 hbox(btn_dl, spacer, btn_design),
+            )
+        ]
+        Container: web_view:
+            padding = 0
+            Conditional:
+                condition = QT_WEBENGINE
+                WebView:
+                    html << view.source
+            Conditional:
+                condition = not QT_WEBENGINE
+                Html:
+                    source << view.source
+        PushButton: btn_dl:
+            text = "Save as pdf"
+            clicked :: save_as_pdf()
+        PushButton: btn_design:
+            text = "Open designer"
+            enabled << QT_QSCI
+            clicked :: open_designer()
+
+
+enamldef InvoiceView(Container):
+    attr invoice: Invoice = Invoice()
+
+    func open_preview() -> InvoicePreviewDockItem:
+        if item := plugin.area.find(f"invoice-preview-{invoice.uuid}"):
+            return item
+        item = InvoicePreviewDockItem(plugin.area, invoice=invoice)
+        plugin.insert_item(item, target=f'invoice-edit-{invoice.uuid}')
+        return item
+
+    InvoiceForm:
+        padding = 0
+        invoice << parent.invoice
+    PushButton:
+        text = "Preview"
+        clicked :: open_preview()
+
+
+enamldef InvoiceViewDockItem(DockItem): view:
+    attr invoice: Invoice
+    name << f"invoice-edit-{invoice.uuid}"
+    title << f"Invoice - {invoice.number}"
+    InvoiceView:
+        invoice << view.invoice
+
+
+enamldef InvoiceListView(Container): view:
+    attr invoices: list = [] # type: list[Invoice]
+    attr version: int = 1
+    attr selected: set = set()
+    
+    func add_item() -> InvoiceViewDockItem:
+        invoices = self.invoices[:]
+        invoices.append(Invoice(owner=plugin.company))
+        self.invoices = invoices
+        self.version += 1
+        return edit_item(invoices[-1])
+
+    func edit_item(invoice: Invoice) -> InvoiceViewDockItem:
+        tag = f"invoice-edit-{invoice.uuid}"
+        if item := plugin.area.find(tag):
+            return item
+        item = InvoiceViewDockItem(plugin.area, invoice=invoice)
+        plugin.insert_item(item, target='invoice-list')
+        return item
+    
+    func queryset(items: list[Invoice], text: str) -> list[Invoice]:
+        if not text:
+            return items
+        qs = []
+        q = text.lower().replace("=", "==")
+        for item in items:
+            #: WARNING: Security issue
+            #: TODO Parse to ast, but dilligaf for now
+            scope = {
+                "number": item.number,
+                "customer": item.customer.name.lower(),
+                "amount": item.total_amount,
+                "date": item.date,
+                "status": item.status,
+            }
+            try:
+                if safe_search(scope, q):
+                    qs.append(item)
+            except Exception as e:
+                workbench.message_warning("Search error", f"Search is invalid: {e}")
+                return qs
+        return qs
+    
+    constraints = [
+        vbox(search, hbox(item_count, spacer, add_btn), table)
+    ]
+
+    Field: search:
+        placeholder = "Filters... ex John in customer, number = 1000"
+    Label: item_count:
+        text << f"Showing {len(table.items)} of {len(invoices)}"
+    PushButton: add_btn:
+        text = "New invoice"
+        icon = load_icon("page_add")
+        clicked :: add_item()
+    TableView: table:
+        horizontal_headers = ['Number', 'Amount', 'Status', 'Customer', 'Created']
+        horizontal_stretch = True
+        show_vertical_header = False
+        selection_behavior = 'rows'
+        #resize_mode = 'resize_to_contents'
+        items <<  queryset(invoices, search.text)
+        Looper:
+            iterable << range(100)
+            TableViewRow:
+                row << table.visible_row+loop_index
+                attr invoice: Invoice << table.items[self.row] if self.row < len(table.items) else Invoice()
+                double_clicked :: edit_item(invoice)
+                Menu:
+                    Action:
+                        text = "Edit invoice"
+                        triggered :: edit_item(invoice)
+                TableViewItem:
+                    checkable = True
+                    checked << invoice in view.selected
+                    checked :: 
+                        s = {invoice}
+                        if change['value']:
+                            view.selected = view.selected.union(s)
+                        else:
+                            view.selected = view.selected.difference(s)
+                    text << str(invoice.number)
+                TableViewItem:
+                    #: TODO: Configure
+                    text << "${0:,.2f}".format(invoice.total_amount)
+                TableViewItem:
+                    text << invoice.status
+                TableViewItem:
+                    text << invoice.customer.name if invoice.customer else ''
+                TableViewItem:
+                    text << invoice.date.strftime("%c")
+

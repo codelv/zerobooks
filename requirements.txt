@@ -1,6 +1,0 @@
-enaml==0.10.3.dev0
-arrow==0.12.1
-QScintilla==2.10.7
-pdfkit==0.6.1
-enaml-web==0.4.4
-# apt install wkhtmltopdf

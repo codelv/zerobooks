@@ -7,6 +7,5 @@ The full license is in the file LICENSE, distributed with this software.
 """
 from zerobooks.app import main
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

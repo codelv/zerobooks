@@ -1,0 +1,159 @@
+"""
+Copyright (c) 2018, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+from enaml.widgets.api import Container, DockArea, DockItem
+from enaml.workbench.api import Extension, PluginManifest
+from enaml.workbench.ui.api import ActionItem, MenuItem, ItemGroup
+from enaml.widgets.api import (
+    Window, Label, Field, Form, DateSelector, CheckBox, GroupBox, Container,
+    PushButton, PopupView
+)
+from enaml.stdlib.dock_area_styles import (
+    register_styles, available_styles, CommonStyles, AreaStyle, ItemStyle,
+    TitleBarStyle
+)
+from enaml.layout.api import (
+    HSplitLayout, VSplitLayout, TabLayout, InsertItem, hbox, vbox, spacer
+)
+from zerobooks.app import ZeroApplication
+from zerobooks.workbench import ZeroWorkbench
+from zerobooks.models.api import System
+from zerobooks.views.customer import CustomerView, CustomerListView
+from zerobooks.views.invoice import InvoiceListView
+from zerobooks.views.product import ProductListView
+from zerobooks.utils import DockArea, DockItem
+
+def get_system_color(name='window'):
+    from enaml.qt.QtWidgets import QWidget
+    palette = QWidget().palette()
+    qcolor = getattr(palette, name)().color()
+    return qcolor.name(qcolor.HexArgb)
+
+
+template SystemStyle():
+    """ DockArea style sheet styles that uses the system colors
+
+    """
+    CommonStyles():
+        pass
+    AreaStyle:
+        background = get_system_color('window')
+    ItemStyle:
+        background = get_system_color('window')
+        border = '1px solid '+get_system_color('base')
+    TitleBarStyle:
+        background = get_system_color('base')
+
+
+if 'system' not in available_styles():
+    register_styles('system', SystemStyle)
+
+enamldef DefaultView(Container):
+    padding = 0
+
+enamldef CompanyDockItem(DockItem):
+    name = 'company-view'
+    title = 'Company'
+    closable = False
+    CustomerView:
+        customer := plugin.company
+
+
+enamldef CustomersDockItem(DockItem):
+    name = 'customer-list'
+    title = 'Customers'
+    closable = False
+    CustomerListView:
+        customers := plugin.customers
+
+
+enamldef InvoicesDockItem(DockItem):
+    title = 'Invoices'
+    name = 'invoice-list'
+    closable = False
+    InvoiceListView:
+        invoices := plugin.invoices
+
+
+enamldef ProductsDockItem(DockItem):
+    title = 'Products'
+    name = 'product-list'
+    closable = False
+    ProductListView:
+        products := plugin.products
+
+
+enamldef NotificationPopup(PopupView):
+    foreground = 'white'
+    background = 'rgba(30, 30, 30, 0.85)'
+    window_type = 'tool_tip'
+    parent_anchor = (0, 1.0)
+    anchor = (1.0, 1.0)
+    offset = (-10, -10)
+    timeout = 2
+    fade_in_duration = 500
+    fade_out_duration = 500
+    alias label
+    alias message: label.text
+    Container:
+        Label: label:
+            foreground = 'white'
+            align = 'center'
+
+enamldef DockView(DockArea): view:
+    attr app: ZeroApplication = ZeroApplication.instance()
+    attr sys_config: System = app.sys_config
+    attr workbench: ZeroWorkbench
+    attr plugin = workbench.get_plugin('zerobooks.core')
+    name = "dock-area"
+    style << plugin.dock_style
+    # The layout cannot be restored properly if children are added here
+
+    func notification(message: str, **kwargs):
+        """ Show a popup notification
+
+        """
+        popup = NotificationPopup(
+            self, window_type='window', message=message, **kwargs
+        )
+        popup.show()
+        return popup
+
+
+
+enamldef DockManifest(PluginManifest):
+    """ The manifest which is registered when the view is loaded.
+
+    This manifest contributes extra menu items to the menu bar.
+
+    """
+    id = 'zerobooks.core.views.dock'
+    Extension:
+        id = 'actions'
+        point = 'enaml.workbench.ui.actions'
+        MenuItem:
+            path = '/edit'
+            label = 'Edit'
+            after = 'file'
+            ItemGroup:
+                id = 'first'
+        ActionItem:
+            path = '/edit/undo'
+            label = 'Undo'
+            group = 'first'
+        ActionItem:
+            path = '/edit/cut'
+            label = 'Cut'
+            shortcut = 'Ctrl+X'
+        ActionItem:
+            path = '/edit/copy'
+            label = 'Copy'
+            shortcut = 'Ctrl+C'
+        ActionItem:
+            path = '/edit/paste'
+            label = 'Paste'
+            shortcut = 'Ctrl+V'

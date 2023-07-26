@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="48"
+   height="48"
+   viewBox="0 0 12.7 12.7"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="icon.svg"
+   inkscape:export-filename="/home/jrm/projects/zero/zerobooks/assets/icons/icon.png"
+   inkscape:export-xdpi="1039.4583"
+   inkscape:export-ydpi="1039.4583"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     units="px"
+     inkscape:zoom="22.627417"
+     inkscape:cx="14.827145"
+     inkscape:cy="11.689359"
+     inkscape:window-width="1872"
+     inkscape:window-height="1043"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-79.311565,-112.17881)">
+    <rect
+       style="fill:#e6e6e6;stroke:#999999;stroke-width:0.138209;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+       id="rect1052"
+       width="12.372924"
+       height="12.372924"
+       x="79.475098"
+       y="112.34235"
+       rx="1.033397"
+       ry="1.0334569" />
+    <rect
+       style="fill:#999999;stroke:none;stroke-width:0.0709726;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+       id="rect1052-6-3"
+       width="10.45"
+       height="3.7868707"
+       x="80.444054"
+       y="116.34309" />
+    <g
+       id="g1659"
+       transform="translate(0.10671234,0.52916667)"
+       style="fill:#999999;stroke:none">
+      <rect
+         style="fill:#999999;stroke:none;stroke-width:0.0228331;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+         id="rect1052-6-3-5"
+         width="3.7527342"
+         height="1.0914279"
+         x="87.034607"
+         y="122.15028" />
+      <rect
+         style="fill:#999999;stroke:none;stroke-width:0.0145303;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+         id="rect1052-6-3-5-1"
+         width="2.3881307"
+         height="0.6945529"
+         x="88.399208"
+         y="121.05888" />
+      <rect
+         style="fill:#999999;stroke:none;stroke-width:0.0145303;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+         id="rect1052-6-3-5-1-7"
+         width="2.3881307"
+         height="0.6945529"
+         x="88.399208"
+         y="120.01707" />
+    </g>
+    <rect
+       style="fill:#999999;stroke:none;stroke-width:0.0257413;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.556503"
+       id="rect1052-6"
+       width="4.6170774"
+       height="1.1274753"
+       x="86.276978"
+       y="114.36729" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.11866px;line-height:1.25;font-family:'Noto sans';-inkscape-font-specification:'Noto sans Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#999999;fill-opacity:1;stroke:none;stroke-width:0.194916"
+       x="83.331665"
+       y="115.43648"
+       id="text5153"><tspan
+         sodipodi:role="line"
+         id="tspan5151"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.11866px;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#999999;fill-opacity:1;stroke:none;stroke-width:0.194916"
+         x="83.331665"
+         y="115.43648">INV</tspan></text>
+  </g>
+</svg>

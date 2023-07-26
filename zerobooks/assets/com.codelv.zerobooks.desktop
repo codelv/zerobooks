@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=ZeroBooks
+GenericName=ZeroBooks
+Comment=Open-source invoicing software
+Exec=%PREFIX%/bin/zerobooks
+Icon=~/.local/share/zerobooks/icon.svg
+Terminal=false
+Categories=Office;
+MimeType=image/svg+xml;
+Keywords=invoice;books;billing;

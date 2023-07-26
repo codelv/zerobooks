@@ -1,0 +1,139 @@
+"""
+Copyright (c) 2018, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+import enaml
+from enaml.workbench.api import Extension, PluginManifest
+from enaml.workbench.core.api import Command
+from enaml.workbench.ui.api import (
+    ActionItem, Branding, MenuItem, ItemGroup, Autostart
+)
+from enaml.qt.QtWidgets import QApplication
+from .utils import log, load_icon
+
+
+def default_view_factory(workbench):
+    from .core import DefaultWorkspace
+
+    import enaml
+    with enaml.imports():
+        from .views.dock import DefaultView, DockManifest
+        
+    space = DefaultWorkspace()
+    space.plugin_id = 'zerobooks.core'
+    space.window_title = 'Simple Invoicing'
+    space.content_def = DefaultView
+    space.manifest_def = DockManifest
+    return space
+
+
+def application_factory():
+    """ A factory function which creates the default Application."""
+    from zerobooks.app import ZeroApplication
+    from zerobooks import version
+
+    QApplication.setApplicationName("zerobooks")
+    QApplication.setApplicationVersion(version)
+    QApplication.setDesktopFileName("com.codelv.zerobooks")
+
+    return ZeroApplication()
+
+
+def window_factory(workbench):
+    """ A factory function which creates the default WorkbenchWindow
+    and attaches a close event. """
+    from zerobooks.app import ZeroApplication
+    with enaml.imports():
+        from enaml.workbench.ui.workbench_window import WorkbenchWindow
+    window = WorkbenchWindow()
+
+    window.icon = load_icon('icon')
+
+    def on_close(change):
+        log.debug("Window closed")
+        ui = workbench.get_plugin("enaml.workbench.ui")
+        if save_area := getattr(ui.workspace, 'save_area', None):
+            save_area()
+
+    window.observe("closing", on_close)
+    return window
+
+
+def core_plugin():
+    from .core import CorePlugin
+    return CorePlugin()
+
+
+def reset_area(event):
+    ui = event.workbench.get_plugin("enaml.workbench.ui")
+    if reset_area := getattr(ui.workspace, 'reset_area', None):
+        reset_area()
+
+
+enamldef AppManifest(PluginManifest):
+    """ The plugin manifest for the primary example plugin.
+
+    This plugin acts as the entry point for all other plugins in this
+    example. It contributes the window branding, default actions, and
+    the workspace definitions.
+
+    """
+    id = 'zerobooks.core'
+    factory = core_plugin
+    Extension:
+        id = 'application_factory'
+        point = 'enaml.workbench.ui.application_factory'
+        factory = application_factory
+    Extension:
+        id = 'window_factory'
+        point = 'enaml.workbench.ui.window_factory'
+        factory = window_factory
+    Extension:
+        id = 'branding'
+        point = 'enaml.workbench.ui.branding'
+        Branding:
+            title = 'ZeroBooks'
+    Extension:
+        id = 'autostart'
+        point = 'enaml.workbench.ui.autostart'
+        Autostart:
+            plugin_id = 'zerobooks.core'
+    Extension:
+        id = 'actions'
+        point = 'enaml.workbench.ui.actions'
+        MenuItem:
+            path = '/file'
+            label = 'File'
+            ItemGroup:
+                id = 'user'
+        MenuItem:
+            path = '/view'
+            label = 'View'
+            ItemGroup:
+                id = 'view'
+        ActionItem:
+            path = '/view/reset'
+            label = 'Reset area'
+            command = 'zerobooks.core.reset_area'
+        ActionItem:
+            path = '/file/close'
+            label = 'Quit'
+            shortcut = 'Ctrl+Q'
+            command = 'enaml.workbench.ui.close_window'
+    Extension:
+        id = 'default_view'
+        point = 'enaml.workbench.ui.workspaces'
+        factory = default_view_factory
+
+    Extension:
+        id = 'commands'
+        point = 'enaml.workbench.core.commands'
+        Command:
+            id = "zerobooks.core.reset_area"
+            handler = reset_area
+
+
+    

@@ -1,0 +1,146 @@
+"""
+Copyright (c) 2023, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+from decimal import Decimal as D
+from enaml.core.api import Looper
+from enaml.widgets.api import (
+    Menu, Action, Container, PushButton, GroupBox, Label, Field,
+    Form, CheckBox
+)
+from enaml.layout.api import spacer, vbox, hbox
+from enamlx.widgets.api import TableView, TableViewRow, TableViewItem
+from zerobooks.models.api import Product
+from zerobooks.utils import DockItem, safe_search, load_icon
+
+
+enamldef ProductForm(Container):
+    # sys_config: System is a DockArea global
+    attr product: Product = Product()
+
+    async func save():
+        if product:
+            await product.save()
+            notification(message=f"Product '{product.name}' saved!")
+    GroupBox:
+        Form:
+            Label:
+                text = "Name"
+            Field:
+                text := product.name
+            Label:
+                text = "Price"
+            Field:
+                text << "${0:,.2f}".format(product.price)
+                text ::
+                    try:
+                        product.price = D(text.strip("$"))
+                    except ValueError:
+                        pass
+            Label:
+                text = "Taxable"
+            CheckBox:
+                checked := product.taxable
+    PushButton:
+        text = "Save"
+        clicked :: app.deferred_call(save())
+
+
+enamldef ProductViewDockItem(DockItem):
+    alias product: form.product
+    name << f'product-edit-{product.uuid}'
+    title << f"Product - {product.name}"
+    Container:
+        padding = 0
+        ProductForm: form:
+            pass
+
+    save_state => ():
+        default = DockItem.save_state(self)
+        default["product"] = self.product
+        return default
+
+
+enamldef ProductListView(Container): view:
+    attr products: list = [] # type: list[Product]
+    attr version: int = 1
+    attr selected: set = set()
+
+    func add_item():
+        products = self.products[:]
+        products.append(Product(name="New product"))
+        self.products = products
+        self.version += 1
+        edit_item(products[-1])
+
+    func edit_item(product: Product) -> ProductViewDockItem:
+        if item := plugin.area.find(f"product-edit-{product.uuid}"):
+            return item
+        item = ProductViewDockItem(plugin.area, product=product)
+        plugin.insert_item(item, target='product-list')
+        return item
+
+    func queryset(items, text):
+        if not text:
+            return items
+        qs = []
+        q = text.lower().replace("=", "==")
+        for item in items:
+            #: WARN: Security issue
+            #: TODO Parse to ast, but dilligaf for now
+            scope = {'name': item.name.lower(), 'company': item.company.lower(),
+                     'phone': item.phone}
+            try:
+                if safe_search(scope, q):
+                    qs.append(item)
+            except Exception as e:
+                workbench.message_warning("Search error", f"Search is invalid: {e}")
+                return qs
+        return qs
+    constraints = [
+        vbox(search, hbox(item_count, spacer, add_btn), table)
+    ]
+    Field: search:
+        placeholder = 'Filters... ex "Shoes" in name, id = 10000'
+    Label: item_count:
+        text << f"Showing {len(table.items)} of {len(products)}"
+    PushButton: add_btn:
+        text = 'New product'
+        icon = load_icon("package_add")
+        clicked :: add_item()
+    TableView: table:
+        horizontal_headers = ['ID', 'Name', 'Price', 'Taxable', 'Created']
+        horizontal_stretch = True
+        show_vertical_header = False
+        items << queryset(products, search.text)
+        Looper:
+            iterable << range(50)
+            TableViewRow:
+                row << table.visible_row + loop.index
+                attr product: Product << table.items[self.row] if self.row < len(table.items) else Product()
+                double_clicked :: edit_item(product)
+                Menu:
+                    Action:
+                        text = "Edit product"
+                        triggered :: edit_item(product)
+                TableViewItem:
+                    checkable = True
+                    checked << product in view.selected
+                    checked ::
+                        s = {product}
+                        if change['value']:
+                            view.selected = view.selected.union(s)
+                        else:
+                            view.selected = view.selected.difference(s)
+                    text << f"{product.id}"
+                TableViewItem:
+                    text << product.name
+                TableViewItem:
+                    text << "${0:,.2f}".format(product.price)
+                TableViewItem:
+                    text << product.created.strftime("%c")
+
+

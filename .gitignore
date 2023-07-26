@@ -5,3 +5,6 @@ __enamlcache___/
 .kdev4/
 *.swp
 *.pdf
+*.egg-info
+*.kate-swp
+

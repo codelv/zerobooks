@@ -1,0 +1,193 @@
+"""
+Copyright (c) 2018, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+from web.core.api import Looper, Conditional
+from web.components.api import *
+from zerobooks.models.invoice import Invoice
+
+
+enamldef InvoiceTemplate(Html):
+    attr invoice: Invoice
+    attr version: int = 1
+    
+    attr text_light = "#777"
+    attr text_dark = "#000"
+    attr theme_primary = "#26a69a"
+    
+    # Workaround to automatically update
+    modified :: self.version += 1
+    Body:
+        style = f'font-family: sans-serif; background: white; color: {text_dark};'
+        Div:
+            style = f'background: {theme_primary}; height: 20px'
+        Div:
+            style = 'padding: 20px'
+            Div:
+                style = 'margin-bottom: 20px'
+                H2:
+                    style = f'color: {theme_primary}; margin-bottom: 0;'
+                    text = "Invoice "
+                    Span:
+                        style = f'color: {text_light}'
+                        text = f"#{invoice.number}"
+                Span:
+                    style = f'color: {text_light}; font-size: 14px;'
+                    text << f"Submitted on {invoice.date.strftime('%x')}"
+            Div:
+                style = 'margin-bottom: 20px'
+                H4:
+                    style = f'color: {theme_primary};margin: 0; padding:0;'
+                    text << invoice.owner.display_name            
+                H5:
+                    style = 'margin: 0; padding:0; '
+                    text << invoice.owner.company
+                Span:
+                    text << invoice.owner.billing_address.street
+                Br:
+                    pass
+                Span:
+                    attr address << invoice.owner.billing_address
+                    text << f"{address.city}, {address.state} {address.zipcode}"
+                
+            Table:
+                style = f'width: 100%;'
+                THead:
+                    Tr:
+                        Td:
+                            H4:
+                                text = "Invoice for"
+                        Td:
+                            H4:
+                                text = "Payable to"
+                        Td:
+                            H4:
+                                text = "Invoice #"
+                TBody:
+                    Tr:
+                        Td:
+                            style = 'vertical-align: top'
+                            
+                            Span:
+                                text << invoice.customer.display_name
+                            Br:
+                                pass
+                            Conditional:
+                                condition << bool(invoice.customer.company)
+                                Span:
+                                    text << invoice.customer.company
+                                Br:
+                                    pass
+                            Span:
+                                text << invoice.customer.billing_address.street
+                            Br:
+                                pass
+                            Span:
+                                attr address << invoice.customer.billing_address
+                                text << f"{address.city}, {address.state} {address.zipcode}"    
+                            
+                        Td:
+                            Span:
+                                text << invoice.owner.company or invoice.owner.display_name
+                            H4:
+                                text = "Project"
+                            Span:
+                               text << invoice.project
+                        Td:
+                            Span:
+                                text << f'{invoice.number}'
+                            H4:
+                                text = "Due Date"
+                            Span:
+                                text << f'{invoice.due_date.strftime("%x")}'
+            Hr:
+                pass
+            
+            Table:
+                style = f'width: 100%; margin-bottom: 20px;'
+                THead:
+                    Tr:
+                        Td:
+                            H4:
+                                text = "#"
+
+                        Td:
+                            H4:
+                                text = "Product / Service"
+                        Td:
+                            H4:
+                                text = "Qty"
+                        Td:
+                            H4:
+                                text = "Unit Price"
+                        Td:
+                            H4:
+                                text = "Total Price"
+                TBody:
+                    Looper:
+                        iterable << invoice.items[:]
+                        Tr:
+                            attr color << '#fff' if (loop_index & 1) else '#f3f3f3'
+                            style << f'background: {color};'
+                            Td:
+                                Span:
+                                    text << f'{loop_index+1}'
+                            Td:
+                                Span:
+                                    text << loop_item.name
+                            Td:
+                                Span:
+                                    text << f'{loop_item.quantity}'
+                            Td:
+                                Span:
+                                    text << f'${loop_item.rate:,.2f}'
+                            Td:
+                                Span:
+                                    text << f'${loop_item.amount:,.2f}'
+                TFoot:
+                    Tr:
+                        Td:
+                            colspan = '3'
+                            Span:
+                                text = "Notes"
+                            P:
+                                style << f'color: {text_light}; font-size: 12px;'
+                                text << invoice.notes or "Thanks for doing business with us!"
+                        Td:
+                            style = 'text-align: right; padding-right: 20px'
+                            Span:
+                                style = 'font-weight: bold'
+                                text = "Subtotal"
+                            Br:
+                                pass
+                            Span:
+                                style = 'font-weight: bold'
+                                text = "Adjustments"
+                            H3:
+                                text = 'Grand total'
+                        Td:
+                            Span:
+                                text << f"${invoice.subtotal:,.2f}"
+                            Br:
+                                pass
+                            Span:
+                                text << f"${invoice.total_adjustments:,.2f}"
+                            Br:
+                                pass
+                            H3:
+                                text << f"${invoice.total_amount:,.2f}"
+        Div:
+            style << f'background: #efefef; padding: 20px; color: {text_light}'
+            H4:
+                style = "text-align: center"
+                text = "Have a question or need help?"
+            P:
+                style = "text-align: center"
+                text << f"Send us an email at {invoice.owner.email} or give us a call at {invoice.owner.phone}"
+        Div:
+            style = 'background: #26a69a; height: 20px;'
+            
+            

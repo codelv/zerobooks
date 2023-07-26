@@ -1,0 +1,55 @@
+"""
+Copyright (c) 2018, Jairus Martin.
+
+Distributed under the terms of the AGPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+"""
+from enaml.core.api import Conditional
+from enaml.widgets.api import Form, Label, Field, CheckBox, ObjectCombo
+from zerobooks.models.api import Address
+
+enamldef AddressForm(Form): form:
+    attr title: str = "Address"
+    attr show_checkbox: bool = False
+    attr address: Address
+    attr other_address: Address
+    attr use_other: bool << address == other_address
+    Label:
+        text << title
+    Conditional:
+        condition << show_checkbox
+        CheckBox:
+            text = "Same as billing address"
+            checked := form.use_other
+            checked ::
+                if change['value']:
+                    form.address = other_address
+                else:
+                    form.address = Address()
+    Conditional:
+        condition << not show_checkbox
+        Label:
+            pass
+    Label:
+        text = "Street:"
+    Field:
+        text := address.street
+        enabled << not use_other
+    Label:
+        text = "City:"
+    Field:
+        text := address.city
+        enabled << not use_other
+    Label:
+        text = "Zipcode:"
+    Field:
+        text := address.zipcode
+        enabled << not use_other
+    Label:
+        text = "State:"
+    ObjectCombo:
+        items = [""] + list(Address.STATES.keys())
+        to_string = lambda it: Address.STATES[it] if it else ""
+        selected := address.state
+        enabled << not use_other
