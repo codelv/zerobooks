@@ -110,7 +110,7 @@ enamldef DockView(DockArea): view:
     attr workbench: ZeroWorkbench
     attr plugin = workbench.get_plugin('zerobooks.core')
     name = "dock-area"
-    style << plugin.dock_style
+    style = "system"
     # The layout cannot be restored properly if children are added here
 
     func notification(message: str, **kwargs):

@@ -40,7 +40,7 @@ setup(
         'asyncqtpy',
         'sqlalchemy',
         'alembic',
-        'aiosqlite @ git+https://github.com/frmdstryr/aiosqlite.git#branch=sa-support'
+        'aiosqlite @ git+https://github.com/frmdstryr/aiosqlite.git@sa-support'
     ],
     extras_require={
       "webengine": "pyqt6-webengine",

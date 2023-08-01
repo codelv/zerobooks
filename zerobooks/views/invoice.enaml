@@ -34,30 +34,65 @@ from zerobooks.utils import (
 )
 
 
-enamldef InvoiceForm(Container):
+enamldef InvoiceView(Container):
     # sys_config: System is a DockArea global
     attr invoice: Invoice
+
+    func open_preview() -> "InvoicePreviewDockItem":
+        if item := plugin.area.find(f"invoice-preview-{invoice.uuid}"):
+            return item
+        item = InvoicePreviewDockItem(plugin.area, invoice=invoice)
+        plugin.insert_item(item, target=f'invoice-edit-{invoice.uuid}')
+        return item
+
     async func save():
         if invoice:
             await invoice.save()
             notification(message=f"Invoice {invoice.number} saved!")
-    GroupBox:
+
+    constraints = [
+        vbox(
+            hbox(spacer, btn_save, btn_preview),
+            invoice_box,
+            table,
+            hbox(btn_add, btn_clear, spacer),
+            comments_box,
+        )
+    ]
+
+    PushButton: btn_save:
+        text = "Save"
+        icon = load_icon("table_save")
+        clicked :: app.deferred_call(save())
+
+    PushButton: btn_preview:
+        text = "Preview"
+        icon = load_icon("application_view_gallery")
+        clicked :: open_preview()
+
+    GroupBox: invoice_box:
+        #title = "Invoice"
         constraints = [
             vbox(
-                hbox(vbox(
-                        hbox(lbl_num, lbl_num_val),
-                        hbox(lbl_cust, cmb_cust)), spacer, vbox(lbl_bal_due, lbl_bal_due_value)),
-                hbox(vbox(lbl_terms, cmb_terms),
-                     vbox(lbl_date, fld_date),
-                     vbox(lbl_due, fld_due), spacer)
+                hbox(
+                    vbox(lbl_num, lbl_num_val),
+                    vbox(lbl_cust, cmb_cust),
+                    spacer,
+                    vbox(lbl_bal_due, lbl_bal_due_value)
+                ),
+                hbox(
+                    vbox(lbl_terms, cmb_terms),
+                    vbox(lbl_date, fld_date),
+                    vbox(lbl_due, fld_due),
+                )
             ),
-            align('v_center', lbl_num, lbl_num_val, lbl_bal_due),
-            align('v_center', lbl_cust, cmb_cust, lbl_bal_due_value),#, lbl_bal_due, lbl_bal_due_value),
+            #align('v_center', lbl_num, lbl_num_val, lbl_bal_due),
+           # align('v_center', lbl_cust, cmb_cust, lbl_bal_due_value),#, lbl_bal_due, lbl_bal_due_value),
         ]
         Label: lbl_num:
-           text = "Invoice:"
-        Label: lbl_num_val:
-           text << f"{invoice.number}"
+            text = "Invoice:"
+        Field: lbl_num_val:
+            text := invoice.number
         Label: lbl_bal_due:
             text = 'Balance Due:'
         Label: lbl_bal_due_value:
@@ -91,25 +126,31 @@ enamldef InvoiceForm(Container):
         attr selected: set = set()
         horizontal_headers = ['Product / Service', 'Description', 'Qty', 'Rate', 'Amount']
         horizontal_stretch = True
+        horizontal_sizes = [200, 200, 80, 80, 80]
         show_vertical_header = False
-        items << invoice.items[:]
+        items := invoice.items
         Looper:
             iterable << range(50)
             TableViewRow:
                 row << table.visible_row+loop.index
-                attr line_item: InvoiceItem << table.items[self.row] if self.row < len(table.items) else InvoiceItem()
+                attr line_item: InvoiceItem << invoice.items[row] if row < len(invoice.items) else InvoiceItem()
                 Menu:
+                    Action:
+                        text = "Choose product..."
+                        # triggered ::
                     Action:
                         text = "Remove item"
                         enabled << bool(invoice.items)
-                        triggered :: 
-                            invoice.items = [i for i in invoice.items 
-                                                if i != line_item]
-                            
+                        triggered ::
+                            if workbench.message_question(
+                                title="Please confirm",
+                                message=f"Do you want to clear the item '{line_item}'?"
+                            ):
+                                invoice.items = [i for i in invoice.items if i != line_item]
                 TableViewItem:
                     checkable = True
                     checked << line_item in table.selected
-                    checked :: 
+                    checked ::
                         s = set((line_item,))
                         if change['value']:
                             table.selected = table.selected.union(s)
@@ -123,7 +164,7 @@ enamldef InvoiceForm(Container):
                 TableViewItem:
                     editable = True
                     text << f"{line_item.quantity}"
-                    text :: 
+                    text ::
                         try:
                             line_item.quantity = float(change['value'])
                         except ValueError:
@@ -131,44 +172,33 @@ enamldef InvoiceForm(Container):
                 TableViewItem:
                     editable = True
                     text << "${0:,.2f}".format(line_item.rate)
-                    text :: 
+                    text ::
                         try:
                             line_item.rate = D(change['value'].strip("$"))
                         except ValueError:
                             pass
                 TableViewItem:
                     text << "${0:,.2f}".format(line_item.amount)
-    Container:
-        constraints = [
-            vbox( 
-                hbox(btn_add, btn_clear, spacer, lbl_amnt, lbl_amnt_value),
-                lbl_cmts,
-                fld_cmts,
-            )
-        ]
-        PushButton: btn_add:
-            text = "Add item"
-            clicked :: invoice.items.append(InvoiceItem())
-        PushButton: btn_clear:
-            text = "Clear all items"
-            clicked :: 
-                # TODO: Prompt to verify
-                if workbench.message_question(
-                    title="Please confirm",
-                    message="Do you want to clear all line items?"
-                ):
-                    invoice.items = []
-        Label: lbl_amnt:
-            text = "<b>Total</b>"
-        Label: lbl_amnt_value:
-            text << "<b>${0:,.2f}</b>".format(invoice.total_amount)
+
+    PushButton: btn_add:
+        text = "Add line item"
+        icon = load_icon("package_add")
+        clicked :: invoice.items.append(InvoiceItem())
+    PushButton: btn_clear:
+        text = "Clear all line items"
+        icon = load_icon("package_delete")
+        clicked ::
+            if workbench.message_question(
+                title="Please confirm",
+                message="Do you want to clear all line items?"
+            ):
+                invoice.items = []
+    Container: comments_box:
+        padding = 0
         Label: lbl_cmts:
             text = "Comments"
         MultilineField: fld_cmts:
             text := invoice.notes
-    PushButton:
-        text = "Save"
-        clicked :: app.deferred_call(save())
 
 
 enamldef InvoiceDesignerDockItem(DockItem): view:
@@ -289,10 +319,18 @@ enamldef InvoicePreviewDockItem(DockItem): view:
 
     Container:
         constraints = [
-            vbox(web_view,
-                 hbox(btn_dl, spacer, btn_design),
+            vbox(
+                hbox(btn_dl, spacer, btn_design),
+                web_view,
             )
         ]
+        PushButton: btn_dl:
+            text = "Save as pdf"
+            clicked :: save_as_pdf()
+        PushButton: btn_design:
+            text = "Open designer"
+            enabled << QT_QSCI
+            clicked :: open_designer()
         Container: web_view:
             padding = 0
             Conditional:
@@ -303,39 +341,23 @@ enamldef InvoicePreviewDockItem(DockItem): view:
                 condition = not QT_WEBENGINE
                 Html:
                     source << view.source
-        PushButton: btn_dl:
-            text = "Save as pdf"
-            clicked :: save_as_pdf()
-        PushButton: btn_design:
-            text = "Open designer"
-            enabled << QT_QSCI
-            clicked :: open_designer()
 
-
-enamldef InvoiceView(Container):
-    attr invoice: Invoice = Invoice()
-
-    func open_preview() -> InvoicePreviewDockItem:
-        if item := plugin.area.find(f"invoice-preview-{invoice.uuid}"):
-            return item
-        item = InvoicePreviewDockItem(plugin.area, invoice=invoice)
-        plugin.insert_item(item, target=f'invoice-edit-{invoice.uuid}')
-        return item
-
-    InvoiceForm:
-        padding = 0
-        invoice << parent.invoice
-    PushButton:
-        text = "Preview"
-        clicked :: open_preview()
 
 
 enamldef InvoiceViewDockItem(DockItem): view:
-    attr invoice: Invoice
+    attr invoice: Invoice = Invoice()
     name << f"invoice-edit-{invoice.uuid}"
     title << f"Invoice - {invoice.number}"
-    InvoiceView:
-        invoice << view.invoice
+
+    save_state => ():
+        default = DockItem.save_state(self)
+        default["invoice"] = self.invoice
+        return default
+
+    Conditional:
+        condition << invoice is not None
+        InvoiceView:
+            invoice << view.invoice
 
 
 enamldef InvoiceListView(Container): view:
@@ -395,6 +417,7 @@ enamldef InvoiceListView(Container): view:
         clicked :: add_item()
     TableView: table:
         horizontal_headers = ['Number', 'Amount', 'Status', 'Customer', 'Created']
+        horizontal_sizes = [80, 80, 80, 200, 200]
         horizontal_stretch = True
         show_vertical_header = False
         selection_behavior = 'rows'
@@ -426,7 +449,7 @@ enamldef InvoiceListView(Container): view:
                 TableViewItem:
                     text << invoice.status
                 TableViewItem:
-                    text << invoice.customer.name if invoice.customer else ''
+                    text << invoice.customer.display_name if invoice.customer else ''
                 TableViewItem:
                     text << invoice.date.strftime("%c")
 

@@ -23,7 +23,7 @@ from zerobooks.utils import DockItem, safe_search, load_icon
 from .address import AddressForm
         
 
-enamldef CustomerForm(Container):
+enamldef CustomerView(Container): view:
     # sys_config: System is a DockArea global
     attr customer: Customer = Customer()
     attr show_employer: bool = True
@@ -43,8 +43,13 @@ enamldef CustomerForm(Container):
             else:
                 notification(f"Customer '{customer.display_name}' saved!")
 
-    #constraints = [
-        #hbox(c1, c2),
+    constraints = [
+        vbox(
+            hbox(lbl_title, spacer, btn_save),
+            name_box,
+            contact_box,
+            address_box
+        ),
         #c1.width == c2.width,
             #vbox(
                 #hbox(
@@ -63,9 +68,15 @@ enamldef CustomerForm(Container):
                 #fld_ph,
             #)
         #)
-    #]
-    GroupBox:
-        title = "Name"
+    ]
+    Label: lbl_title:
+        text << "Company" if customer.internal else "Customer"
+    PushButton: btn_save:
+        text = "Save"
+        icon = load_icon("disk")
+        clicked :: app.deferred_call(save())
+
+    GroupBox: name_box:
         constraints =  [
             vbox(
                 lbl_co, 
@@ -121,7 +132,7 @@ enamldef CustomerForm(Container):
                     email=customer.email,
                     phone=customer.phone
                 ) 
-    GroupBox: c2:
+    GroupBox: contact_box:
         constraints = [
             vbox(
                 hbox(vbox(lbl_em, fld_em),
@@ -158,7 +169,7 @@ enamldef CustomerForm(Container):
         Field: fld_fx:
             #validator = PhoneNumberValidator()
             text := customer.fax
-    GroupBox: c3:
+    GroupBox: address_box:
         title = "Address"
         constraints = [
             hbox(a1, a2),
@@ -179,15 +190,6 @@ enamldef CustomerForm(Container):
                 #prefix = match.group(2)
                 #suffix = match.group(3)
                 #employee.phone = tuple(map(int, (area, prefix, suffix)))
-    PushButton:
-        text = "Save"
-        clicked :: app.deferred_call(save())
-
-
-enamldef CustomerView(Container): view:
-    alias customer: form.customer
-    CustomerForm: form:
-        padding = 0
 
 
 enamldef CustomerViewDockItem(DockItem):
@@ -202,6 +204,7 @@ enamldef CustomerViewDockItem(DockItem):
 
     CustomerView: view:
         pass
+
 
 
 enamldef CustomerListView(Container): view:

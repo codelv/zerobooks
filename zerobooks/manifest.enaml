@@ -48,7 +48,7 @@ def window_factory(workbench):
     from zerobooks.app import ZeroApplication
     with enaml.imports():
         from enaml.workbench.ui.workbench_window import WorkbenchWindow
-    window = WorkbenchWindow()
+    window = WorkbenchWindow(initial_size=(1260, 640))
 
     window.icon = load_icon('icon')
 

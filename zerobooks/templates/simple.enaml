@@ -20,6 +20,14 @@ enamldef InvoiceTemplate(Html):
     
     # Workaround to automatically update
     modified :: self.version += 1
+    style = "margin: 0; padding: 0"
+    Head:
+        Style:
+            text = """
+            @page {
+                margin: 0.25in;
+            }
+            """
     Body:
         style = f'font-family: sans-serif; background: white; color: {text_dark};'
         Div:
@@ -70,7 +78,6 @@ enamldef InvoiceTemplate(Html):
                     Tr:
                         Td:
                             style = 'vertical-align: top'
-                            
                             Span:
                                 text << invoice.customer.display_name
                             Br:
@@ -91,11 +98,13 @@ enamldef InvoiceTemplate(Html):
                             
                         Td:
                             Span:
-                                text << invoice.owner.company or invoice.owner.display_name
-                            H4:
-                                text = "Project"
-                            Span:
-                               text << invoice.project
+                                text << invoice.owner.display_name
+                            Conditional:
+                                condition << bool(invoice.project)
+                                H4:
+                                    text = "Project"
+                                Span:
+                                    text << invoice.project
                         Td:
                             Span:
                                 text << f'{invoice.number}'
@@ -155,7 +164,11 @@ enamldef InvoiceTemplate(Html):
                                 text = "Notes"
                             P:
                                 style << f'color: {text_light}; font-size: 12px;'
-                                text << invoice.notes or "Thanks for doing business with us!"
+                                Pre:
+                                    text << invoice.notes
+                            P:
+                                style << f'color: {text_light}; font-size: 12px;'
+                                text = "Thanks for doing business with us!"
                         Td:
                             style = 'text-align: right; padding-right: 20px'
                             Span:

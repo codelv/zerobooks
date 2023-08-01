@@ -10,7 +10,7 @@ import pickle
 from typing import Optional
 
 import enaml
-from atom.api import Bytes, ContainerList, Enum, Instance, Str, Subclass
+from atom.api import Bytes, ContainerList, Instance, Str, Subclass
 from enaml.application import deferred_call
 from enaml.layout.api import (
     AreaLayout,
@@ -64,9 +64,6 @@ class CorePlugin(Plugin):
 
     #: Dock area
     area = Instance(DockArea)
-
-    #: Style
-    dock_style = Enum(*(["system"] + available_styles()))
 
     #: Path last saved
     last_save_dir = Str(".")
@@ -124,10 +121,27 @@ class CorePlugin(Plugin):
         area.layout = AreaLayout(
             HSplitLayout(
                 VSplitLayout("customer-list", "product-list"),
-                TabLayout("company-view", "invoice-list"),
+                TabLayout("invoice-list", "company-view"),
             ),
         )
         return area
+
+    def save_state(self):
+        # Triggers save in _observe_state
+        self.state = pickle.dumps({
+            'area': self.area,
+            'last_save_dir': self.last_save_dir,
+        })
+        del self.area
+
+    def restore_state(self):
+        if data := self.state:
+            try:
+                state = pickle.loads(data)
+                self.area = state['area']
+                self.last_save_dir = state['last_save_dir']
+            except Exception as e:
+                log.exception(e)
 
 
 class DefaultWorkspace(Workspace):
@@ -172,8 +186,8 @@ class DefaultWorkspace(Workspace):
         plugin = self.workbench.get_plugin(self.plugin_id)
         if area := self.content.find("dock-area"):
             log.debug(f"Saving area {self.plugin_id}")
-            plugin.state = pickle.dumps(area, -1)
-            del plugin.area
+            plugin.area = area
+            plugin.save_state()
 
     def reset_area(self):
         log.debug(f"Reset area {self.plugin_id}")
@@ -189,17 +203,10 @@ class DefaultWorkspace(Workspace):
         log.debug(f"Loading area {self.plugin_id}")
         workbench = self.workbench
         plugin = workbench.get_plugin(self.plugin_id)
-        area: Optional[DockView] = None
-        if plugin.state:
-            try:
-                area = pickle.loads(plugin.state)
-            except Exception as e:
-                log.exception(e)
-        else:
-            log.debug(f"No saved area {self.plugin_id}")
-        if area is None:
-            area = plugin.create_area(workbench)
-        else:
+        plugin.restore_state()
+        if area := plugin.area:
             area.workbench = workbench
+        else:
+            area = plugin.create_area(workbench)
         area.set_parent(self.content)
         plugin.area = area

@@ -5,22 +5,30 @@ Distributed under the terms of the AGPL v3 License.
 
 The full license is in the file LICENSE, distributed with this software.
 """
+import json
+import importlib
 from datetime import datetime, timedelta
 from decimal import Decimal as D
 from uuid import uuid4
 
 import enaml
 from atom.api import ContainerList, Enum, Instance, Int, Str, Typed, observe
-from atomdb.sql import JSONModel, SQLModel
+from atomdb.sql import JSONModel, Relation, SQLModel
 from web.components.api import Html
 
+from zerobooks.utils import log
+
+from .base import BaseModel
 from .customer import Customer
 
 
-class InvoiceItem(JSONModel):
-    #: ID
-    id = Int().tag(primary_key=True)
+def import_payment():
+    from .payment import Payment
 
+    return Payment
+
+
+class InvoiceItem(JSONModel):
     #: Product or service
     name = Str()
 
@@ -44,24 +52,26 @@ class InvoiceItem(JSONModel):
         self.amount = self._default_amount()
 
 
-class Invoice(SQLModel):
+async def unflatten_items(value, scope):
+    # TODO: aiosqlite does not seem to support json?
+    if isinstance(value, str):
+        items = json.loads(value)
+        return [await InvoiceItem.restore(item) for item in items]
+    return await InvoiceItem.serializer.unflatten(value, scope)
+
+
+class Invoice(BaseModel):
     #: Address ID
     id = Int().tag(primary_key=True)
 
-    #: UUID
-    uuid = Str(factory=lambda: str(uuid4().hex)).tag(length=36, unique=True)
-
     #: Invoice number
     __counter__ = 10000
-    number = Int()
+    number = Str().tag(length=30)
 
-    def _default_number(self):
+    def _default_number(self) -> str:
         n = Invoice.__counter__
         Invoice.__counter__ += 1
-        return n
-
-    created = Typed(datetime, factory=datetime.now)
-    updated = Typed(datetime, factory=datetime.now)
+        return str(n)
 
     #: Invoice date
     date = Typed(datetime, factory=datetime.now)
@@ -93,10 +103,10 @@ class Invoice(SQLModel):
         self.due_date = self._default_due_date()
 
     #: Invoicer
-    owner = Typed(Customer)
+    owner = Typed(Customer).tag(ondelete="RESTRICT")
 
     #: Invoicer
-    customer = Typed(Customer)
+    customer = Typed(Customer).tag(ondelete="RESTRICT")
 
     #: Notes
     notes = Str()
@@ -105,7 +115,7 @@ class Invoice(SQLModel):
     project = Str().tag(length=255)
 
     #: Items
-    items = ContainerList(InvoiceItem)
+    items = ContainerList(InvoiceItem).tag(unflatten=unflatten_items)
 
     #: Balance
     subtotal = Typed(D, ())
@@ -122,7 +132,11 @@ class Invoice(SQLModel):
     #: Status
     status = Enum("pending", "open", "paid", "void").tag(length=10)
 
+    #: Payments made
+    payments = Relation(lambda: import_payment)
+
     #: Template
+    template_module = Str("zerobooks.templates.simple").tag(length=255)
     view = Instance(Html).tag(store=False)
 
     def _default_subtotal(self) -> D:
@@ -146,13 +160,21 @@ class Invoice(SQLModel):
 
     def _default_view(self) -> Html:
         with enaml.imports():
-            from zerobooks.templates.invoice import InvoiceTemplate
+            try:
+                pkg, name = self.template_module.rsplit(".", 1)
+                module = importlib.import_module(name, pkg)
+                InvoiceTemplate = module.InvoiceTemplate
+            except Exception as e:
+                log.exception(e)
+                from zerobooks.templates.simple import InvoiceTemplate
         return InvoiceTemplate(invoice=self)
 
     def generate_filename(self) -> str:
+        d = self.due_date or datetime.now()
+        d = d.strftime("%Y-%m-%d")
         if customer := self.customer:
-            return f"invoice-{self.number}-{customer.display_name}.pdf"
-        return f"invoice-{self.number}.pdf"
+            return f"Invoice-#{self.number}-{d}-{customer.display_name}.pdf"
+        return f"Invoice-#{self.number}-{d}.pdf"
 
     class Meta:
         db_table = "invoice"

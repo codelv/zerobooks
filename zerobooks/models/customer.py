@@ -5,23 +5,19 @@ Distributed under the terms of the AGPL v3 License.
 
 The full license is in the file LICENSE, distributed with this software.
 """
-from datetime import datetime
 from decimal import Decimal as D
-from uuid import uuid4
 
 from atom.api import Bool, Int, Property, Str, Typed, observe
 from atomdb.sql import Relation, SQLModel
 from enaml.application import Application
 
 from .address import Address
+from .base import BaseModel
 
 
-class Customer(SQLModel):
+class Customer(BaseModel):
     #: Customer ID
     id = Int().tag(primary_key=True)
-
-    #: UUID
-    uuid = Str(factory=lambda: str(uuid4().hex)).tag(length=36, unique=True)
 
     #: Internal
     internal = Bool()
@@ -40,10 +36,6 @@ class Customer(SQLModel):
 
     #: Suffix
     suffix = Str().tag(length=10)
-
-    #: Dates
-    created = Typed(datetime, factory=datetime.now)
-    updated = Typed(datetime, factory=datetime.now)
 
     def _get_name(self) -> str:
         parts = [
