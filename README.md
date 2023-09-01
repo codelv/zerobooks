@@ -19,4 +19,4 @@ In the correct virtual env run `zerobooks` or `python -m zerobooks`.
 
 ## License
 
-AGPL v3.
+GPL v3.

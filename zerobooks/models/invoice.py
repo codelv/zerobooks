@@ -170,7 +170,7 @@ class Invoice(BaseModel):
         return InvoiceTemplate(invoice=self)
 
     def generate_filename(self) -> str:
-        d = self.due_date or datetime.now()
+        d = self.date or datetime.now()
         d = d.strftime("%Y-%m-%d")
         if customer := self.customer:
             return f"Invoice-#{self.number}-{d}-{customer.display_name}.pdf"
