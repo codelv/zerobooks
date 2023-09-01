@@ -173,7 +173,7 @@ enamldef InvoiceView(Container):
                     text << f"{line_item.quantity}"
                     text ::
                         try:
-                            line_item.quantity = float(change['value'])
+                            line_item.quantity = D(change['value'])
                         except ValueError:
                             pass
                 TableViewItem:

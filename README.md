@@ -14,6 +14,7 @@ On linux you can optionally run `make install` to install the desktop shortcut.
 
 ### Run
 
+Run `alembic upgrade head` to generate a new database.
 In the correct virtual env run `zerobooks` or `python -m zerobooks`.
 
 
