@@ -3,6 +3,7 @@
 Simple desktop based, completely offline, completely free and open source,
 invoicing software for linux.
 
+See the [project site](https://codelv.com/projects/zerobooks/) for screenshots. If you find it helpful feel free to [donate](https://codelv.com/donate).
 
 ### Install
 
